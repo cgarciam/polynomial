@@ -1,6 +1,7 @@
 package home.polynomial;
 
-import static home.polynomial.Polynomial.fromString;
+import static home.polynomial.PolynomialUtils.fromString;
+import static home.polynomial.PolynomialUtils.simplify;
 import static home.polynomial.PolynomialBuilder.build;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -8,7 +9,6 @@ import java.io.IOException;
 import java.util.Date;
 
 import org.apache.commons.math3.analysis.polynomials.PolynomialFunction;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
@@ -16,9 +16,14 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Test class for the {@link Polynomial} class. This class contains unit tests
+ * to verify the correct operation of the {@link Polynomial} class.
+ */
 @Slf4j
+//@SuppressWarnings({"PMD.ShortVariable", "PMD.AtLeastOneConstructor", "PMD.UnitTestShouldIncludeAssert", "PMD."})
 class PolynomialTest {
-
+    // XXX First three tests are OK, but they are missing asserts.
     @Test
     void multiplyShort() throws IOException {
         final Logger myLogger = (Logger) LoggerFactory.getLogger(Polynomial.class);
@@ -27,11 +32,11 @@ class PolynomialTest {
         final String p2 = "1 + y^100 + y^200";
         final Polynomial poly1 = fromString(p1.replace("x", "1*x"));
         final Polynomial poly2 = fromString(p2.replace("y", "1*y"));
-        Polynomial result;
-        result = poly1.multiply(poly2);
+        final Polynomial result = poly1.multiply(poly2);
         if (log.isDebugEnabled()) {
             log.debug("({})*({}) = {}", p1, p2, "1 + x^50 + y^100 + x^50*y^100 + y^200 + x^50*y^200");
         }
+        simplify(result);
         result.printOrderedByDegree();
         result.saveOrderedByDegree("result-short.txt");
     }
@@ -49,7 +54,7 @@ class PolynomialTest {
     }
 
     @Test
-    @Disabled("Test disabled to avoid long execution time")
+    @org.junit.jupiter.api.Disabled("Test disabled to avoid long execution time")
     void multiplyMiddle() throws IOException {
         if (log.isDebugEnabled()) {
             log.debug("Start {}", new Date());
@@ -76,15 +81,10 @@ class PolynomialTest {
     @Test
     void testCombineKeysWithoutExplicitExponent() throws IOException {
         final Polynomial polynomial = new Polynomial();
-
-        // Claves sin exponentes explícitos
+        // Keys without explicit exponents
         final String key1 = "x";
         final String key2 = "y";
-
-        // Combinar claves
         final String result = polynomial.combineKeys(key1, key2);
-
-        // Verificar que el resultado sea correcto
         assertEquals("x*y", result, "La combinación de claves sin exponentes explícitos no es correcta");
     }
 
@@ -92,32 +92,40 @@ class PolynomialTest {
     void testToStringWithMultipleTerms() throws IOException {
         final Polynomial polynomial = new Polynomial();
 
-        // Agregar términos al polinomio
         polynomial.addTerm("x^2", 3.0);
         polynomial.addTerm("y", 2.0);
-        polynomial.addTerm("", 5.0); // Término constante
+        polynomial.addTerm("", 5.0); // Constant term
 
-        // Obtener la representación en cadena
         final String result = polynomial.toString();
 
-        // Verificar que los términos estén concatenados correctamente
+        // Verify the string representation
         assertEquals("3.0*x^2 + 2.0*y + 5.0", result, "La representación en cadena no es correcta");
     }
 
+    @Test
+    void testTermWithZeroCoefficient() throws IOException {
+        final Polynomial polynomial = new Polynomial();
+        // Add a term with zero coefficients
+        polynomial.addTerm("x^2", 0.0);
+        final String result = polynomial.toString();
+        // Verify that the term with zero coefficient is not present in the string representation.
+        assertEquals("", result, "El término con coeficiente cero no debería estar presente");
+    }
+
     /**
-     * Método principal para ejecutar el programa.
+     * Main method to execute the polynomial multiplication test.
      *
-     * @param args argumentos de línea de comandos (no se utilizan).
-     * @throws IOException si ocurre un error al leer o escribir en los archivos.
+     * @param args command line arguments (not used).
+     * @throws IOException if an I/O error occurs.
      */
     public static void main(final String... args) throws IOException {
         if (log.isDebugEnabled()) {
             log.debug("Start {}", new Date());
         }
 
-        final PolynomialFunction polynomial1 = build(500, 50,  "x");
-        final PolynomialFunction polynomial2 = build(800, 100, "y");
-        final PolynomialFunction polynomial3 = build(400, 200, "z");
+        final PolynomialFunction polynomial1 = build(315, 100, "x");
+        final PolynomialFunction polynomial2 = build(315, 200, "y");
+        final PolynomialFunction polynomial3 = build(315, 500, "z");
 
         final String p1 = polynomial1.toString().replace(" ", "").replace("x", "1*x");
         final String p2 = polynomial2.toString().replace(" ", "").replace("x", "1*y");
@@ -133,16 +141,22 @@ class PolynomialTest {
         final Polynomial poly2 = fromString(p2);
         final Polynomial poly3 = fromString(p3);
 
-        Polynomial result;
+        final Polynomial result;
         result = poly1.multiply(poly2);
         if (log.isDebugEnabled()) {
             log.debug("Middle {}", new Date());
         }
-        result = result.multiply(poly3);
-        // If completed without exception, save the file output to a file.
-        result.saveOrderedByDegree("result-ordered-3.txt");
-        if (log.isDebugEnabled()) {
-            log.debug("End {}", new Date());
+        try {
+            result.multiply(poly3);
+        } catch (final Throwable e) { // NOPMD AvoidCatchingThrowable
+            if (log.isErrorEnabled()) {
+                log.error("Error multiplying polynomials (or saving results to file): {}", e.getMessage());
+            }
+            throw e;
+        } finally {
+            if (log.isDebugEnabled()) {
+                log.debug("End {}", new Date());
+            }
         }
     }
 
